@@ -1,10 +1,7 @@
 # 🏴‍☠️🤖 威胁情报钉钉机器人
 
-本项目是从 [Threat Intelligence Discord Bot from vx-underground](https://github.com/vxunderground/ThreatIntelligenceDiscordBot/) 分叉而来，最初修改为支持 Microsoft Teams，现在已更新为支持钉钉推送（webhook+签名），并可以作为小时级 GitHub Action 运行。
 
-> 原始的 vx-underground 威胁情报 Discord 机器人从各种明网域名、勒索软件威胁行为者域名获取更新。本机器人将每隔 1800 秒（30分钟）检查一次更新。
-
-[![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) ![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)  [![Twitter: JMousqueton](https://img.shields.io/twitter/follow/JMousqueton.svg?style=social)](https://twitter.com/JMousqueton) [![Last Run](https://github.com/JMousqueton/CTI-MSTeams-Bot/actions/workflows/fetchCTI.yml/badge.svg)](.github/workflows/fetchCTI.yml)  [![CodeQL](https://github.com/JMousqueton/CTI-MSTeams-Bot/actions/workflows/codeql-analysis.yml/badge.svg)](.github/workflows/codeql-analysis.yml)
+[![MIT License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) ![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)  [![Last Run](https://github.com/adminlove520/CTI_bot/actions/workflows/fetchCTI.yml/badge.svg)](.github/workflows/fetchCTI.yml)  [![CodeQL](https://github.com/adminlove520/CTI_bot/actions/workflows/codeql-analysis.yml/badge.svg)](.github/workflows/codeql-analysis.yml)
 
 ## 项目说明
 
@@ -36,10 +33,10 @@
 
 ## 安装
 
-克隆仓库或下载 [最新发布版本](https://github.com/JMousqueton/CTI-MSTeams-Bot/releases/latest)
+克隆仓库或下载 [最新发布版本](https://github.com/adminlove520/CTI_bot/releases/latest)
 
 ```bash
-git clone https://github.com/JMousqueton/CTI-MSTeams-Bot
+git clone https://github.com/adminlove520/CTI_bot.git
 ```
 
 安装 ```requirements.txt``` 中的所有模块
@@ -50,40 +47,45 @@ pip3 install -r requirements.txt
 
 ## 配置
 
-### GitHub Action 配置
+### 环境变量配置
 
-* 创建钉钉机器人 webhook 和签名密钥
-* 在名为 `CI` 的环境中，将创建的 webhook URL 和签名密钥分别设置为 `DINGTALK_WEBHOOK_*` 和 `DINGTALK_SECRET_*` 变量
+项目支持通过 `.env` 文件配置环境变量，这是最简单和推荐的方式。
 
-### 服务器配置（Windows, MacOS, Linux）
-
-* 设置以下环境变量：
-  * `DINGTALK_WEBHOOK_*` - 钉钉机器人 webhook URL
-  * `DINGTALK_SECRET_*` - 钉钉机器人签名密钥
-
-示例：
+1. 复制 `.env.example` 文件并重命名为 `.env`：
 
 ```bash
-# Windows 环境
-export DINGTALK_WEBHOOK_FEED=https://oapi.dingtalk.com/robot/send?access_token=xxx
-export DINGTALK_SECRET_FEED=SECxxx
-export DINGTALK_WEBHOOK_RANSOMWARE=https://oapi.dingtalk.com/robot/send?access_token=xxx
-export DINGTALK_SECRET_RANSOMWARE=SECxxx
-export DINGTALK_WEBHOOK_IOC=https://oapi.dingtalk.com/robot/send?access_token=xxx
-export DINGTALK_SECRET_IOC=SECxxx
-python3 TeamsIntelBot.py -r -d
+cp .env.example .env
 ```
 
-```batch
-:: Windows CMD 环境
-set DINGTALK_WEBHOOK_FEED=https://oapi.dingtalk.com/robot/send?access_token=xxx
-set DINGTALK_SECRET_FEED=SECxxx
-set DINGTALK_WEBHOOK_RANSOMWARE=https://oapi.dingtalk.com/robot/send?access_token=xxx
-set DINGTALK_SECRET_RANSOMWARE=SECxxx
-set DINGTALK_WEBHOOK_IOC=https://oapi.dingtalk.com/robot/send?access_token=xxx
-set DINGTALK_SECRET_IOC=SECxxx
-python3 TeamsIntelBot.py -r -d
+2. 编辑 `.env` 文件，填入您的钉钉机器人 webhook URL 和签名密钥：
+
 ```
+# Feed推送配置
+DINGTALK_WEBHOOK_FEED=https://oapi.dingtalk.com/robot/send?access_token=your_token_here
+DINGTALK_SECRET_FEED=your_secret_here
+
+# 勒索软件更新配置
+DINGTALK_WEBHOOK_RANSOMWARE=https://oapi.dingtalk.com/robot/send?access_token=your_token_here
+DINGTALK_SECRET_RANSOMWARE=your_secret_here
+
+# 威胁指标配置
+DINGTALK_WEBHOOK_IOC=https://oapi.dingtalk.com/robot/send?access_token=your_token_here
+DINGTALK_SECRET_IOC=your_secret_here
+```
+
+> **注意**：请确保 `.env` 文件已添加到 `.gitignore` 中，避免将敏感信息提交到代码仓库。
+
+#### GitHub Actions 配置
+
+在 GitHub Actions 中，您仍需在 CI 环境的 secrets 中配置相应的环境变量：
+- `DINGTALK_WEBHOOK_FEED`
+- `DINGTALK_SECRET_FEED`
+- `DINGTALK_WEBHOOK_RANSOMWARE`
+- `DINGTALK_SECRET_RANSOMWARE`
+- `DINGTALK_WEBHOOK_IOC`
+- `DINGTALK_SECRET_IOC`
+
+* 可以通过 crontab（Linux/MacOS）或任务计划程序（Windows）设置定期执行脚本，例如每小时执行一次
 
 * 可以通过 crontab（Linux/MacOS）或任务计划程序（Windows）设置定期执行脚本，例如每小时执行一次
 

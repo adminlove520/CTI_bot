@@ -24,6 +24,10 @@ import urllib.request
 from bs4 import BeautifulSoup # parse redflag 
 from datetime import datetime, timedelta
 import re
+from dotenv import load_dotenv
+
+# 加载.env文件中的环境变量
+load_dotenv()
 
 # ---------------------------------------------------------------------------
 # Function to send DingTalk card with webhook and signature
@@ -80,7 +84,7 @@ def GetRansomwareUpdates():
 
         DateActivity = Entries["discovered"]
             
-        # Correction for issue #1 : https://github.com/JMousqueton/CTI-MSTeams-Bot/issues/1
+        # Correction for issue #1 : https://github.com/adminlove520/CTI_bot/issues/1
         try:
             TmpObject = FileConfig.get('Ransomware', Entries["group_name"])
         except:
@@ -364,7 +368,7 @@ def SendReminder():
         OutputMessage += "<br><br>"
         OutputMessage += "Coded with ❤️ by JMousqueton"
         OutputMessage += "<BR>"
-        OutputMessage += "Code : https://github.com/JMousqueton/CTI-MSTeams-Bot"
+        OutputMessage += "Code : https://github.com/adminlove520/CTI_bot"
         today = today.strftime(format)
         FileConfig.set('Misc', "reminder", str(today))
         if options.Debug:
@@ -414,7 +418,7 @@ if __name__ == '__main__':
                       help="Enable monthly reminder of Feeds")
     (options, args) = parser.parse_args()
 
-    # Get DingTalk Webhook and Secret from environment variables  
+    # Get DingTalk Webhook and Secret from environment variables (首先从.env读取，然后从系统环境变量读取)  
     webhook_feed=os.getenv('DINGTALK_WEBHOOK_FEED')
     secret_feed=os.getenv('DINGTALK_SECRET_FEED')
     webhook_ransomware=os.getenv('DINGTALK_WEBHOOK_RANSOMWARE')

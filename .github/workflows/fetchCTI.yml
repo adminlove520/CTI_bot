@@ -22,10 +22,13 @@ jobs:
           pip3 install -r requirements.txt
       - name: run scraper
         env:
-          MSTEAMS_WEBHOOK_FEED: ${{ secrets.MSTEAMS_WEBHOOK_FEED }} 
-          MSTEAMS_WEBHOOK_RANSOMWARE: ${{ secrets.MSTEAMS_WEBHOOK_RANSOMWARE }} 
-          MSTEAMS_WEBHOOK_IOC: ${{ secrets.MSTEAMS_WEBHOOK_IOC }} 
-        run: |
+          DINGTALK_WEBHOOK_FEED: ${{ secrets.DINGTALK_WEBHOOK_FEED }} 
+          DINGTALK_SECRET_FEED: ${{ secrets.DINGTALK_SECRET_FEED }}
+          DINGTALK_WEBHOOK_RANSOMWARE: ${{ secrets.DINGTALK_WEBHOOK_RANSOMWARE }} 
+          DINGTALK_SECRET_RANSOMWARE: ${{ secrets.DINGTALK_SECRET_RANSOMWARE }}
+          DINGTALK_WEBHOOK_IOC: ${{ secrets.DINGTALK_WEBHOOK_IOC }} 
+          DINGTALK_SECRET_IOC: ${{ secrets.DINGTALK_SECRET_IOC }}
+        run:
           python3 TeamsIntelBot.py -d -r 
       - name: save changes
         run: |
