@@ -110,38 +110,57 @@ def load_ransomware_config(config_file="config_ransomware.yaml"):
     :param config_file: Path to config file
     :return: Config dictionary
     """
-    if not exists(config_file):
-        # Create default config if file doesn't exist
-        default_config = {
-            "ransomware": {
-                "api_key": "",
-                "enabled": True,
-                "use_pro": False,
-                "filters": {
-                    "group": [],
-                    "sector": [],
-                    "country": [],
-                    "year": [],
-                    "month": [],
-                    "date": "discovered"
-                },
-                "push_settings": {
-                    "webhook_url": os.getenv("DINGTALK_WEBHOOK_RANSOMWARE"),
-                    "secret": os.getenv("DINGTALK_SECRET_RANSOMWARE")
-                }
+    # Default config structure to ensure we always return a valid dict
+    default_config = {
+        "ransomware": {
+            "api_key": "",
+            "enabled": True,
+            "use_pro": False,
+            "filters": {
+                "group": [],
+                "sector": [],
+                "country": [],
+                "year": [],
+                "month": [],
+                "date": "discovered"
+            },
+            "push_settings": {
+                "webhook_url": os.getenv("DINGTALK_WEBHOOK_RANSOMWARE"),
+                "secret": os.getenv("DINGTALK_SECRET_RANSOMWARE")
             }
         }
-        with open(config_file, 'w', encoding='utf-8') as f:
-            yaml.dump(default_config, f, default_flow_style=False)
-        return default_config
+    }
+    
+    if not exists(config_file):
+        # Create default config if file doesn't exist
+        try:
+            with open(config_file, 'w', encoding='utf-8') as f:
+                yaml.dump(default_config, f, default_flow_style=False)
+            return default_config
+        except Exception as e:
+            print(f"Error creating default ransomware config: {e}")
+            return default_config
 
     try:
         with open(config_file, 'r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
+        
+        # Ensure config is a valid dict
+        if not isinstance(config, dict):
+            print("Invalid config format, using default config")
+            return default_config
 
-        # Ensure backward compatibility for old filter names
-        ransomware_config = config.get("ransomware", {})
-        filters = ransomware_config.get("filters", {})
+        # Ensure ransomware key exists
+        if "ransomware" not in config:
+            config["ransomware"] = default_config["ransomware"]
+        
+        ransomware_config = config["ransomware"]
+        
+        # Ensure filters key exists
+        if "filters" not in ransomware_config:
+            ransomware_config["filters"] = default_config["ransomware"]["filters"]
+        
+        filters = ransomware_config["filters"]
 
         # Convert old filter names to new ones if present
         if "countries" in filters and "country" not in filters:
@@ -151,10 +170,24 @@ def load_ransomware_config(config_file="config_ransomware.yaml"):
         if "groups" in filters and "group" not in filters:
             filters["group"] = filters.pop("groups")
 
-        # Ensure default values
+        # Ensure default filter values
         if "date" not in filters:
             filters["date"] = "discovered"
+        if "year" not in filters:
+            filters["year"] = []
+        if "month" not in filters:
+            filters["month"] = []
+        if "group" not in filters:
+            filters["group"] = []
+        if "sector" not in filters:
+            filters["sector"] = []
+        if "country" not in filters:
+            filters["country"] = []
 
+        # Ensure push_settings exists
+        if "push_settings" not in ransomware_config:
+            ransomware_config["push_settings"] = {}
+        
         # Always prioritize environment variables over config file values
         # Get API key from environment variable if available
         api_key_env = os.getenv('RANSOMWARE_LIVE_API_KEY')
@@ -172,7 +205,7 @@ def load_ransomware_config(config_file="config_ransomware.yaml"):
             ransomware_config["use_pro"] = use_pro_env.lower() == 'true'
 
         # Get push settings from environment variables if available
-        push_settings = ransomware_config.get("push_settings", {})
+        push_settings = ransomware_config["push_settings"]
         webhook_env = os.getenv('DINGTALK_WEBHOOK_RANSOMWARE')
         secret_env = os.getenv('DINGTALK_SECRET_RANSOMWARE')
 
@@ -186,11 +219,11 @@ def load_ransomware_config(config_file="config_ransomware.yaml"):
 
         return config
     except yaml.YAMLError as e:
-        print(f"Error parsing ransomware config: {e}")
-        return {}
+        print(f"Error parsing ransomware config: {e}, using default config")
+        return default_config
     except Exception as e:
-        print(f"Error reading ransomware config: {e}")
-        return {}
+        print(f"Error reading ransomware config: {e}, using default config")
+        return default_config
 
 # ---------------------------------------------------------------------------
 # Fetch Ransomware attacks from https://www.ransomware.live

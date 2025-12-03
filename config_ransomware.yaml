@@ -9,4 +9,5 @@ ransomware:
     month: []
     date: discovered
   use_pro: true
-  push_settings:
+  push_settings: {}
+
