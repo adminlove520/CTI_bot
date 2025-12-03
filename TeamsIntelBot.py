@@ -161,6 +161,9 @@ def load_ransomware_config(config_file="config_ransomware.yaml"):
     except yaml.YAMLError as e:
         print(f"Error parsing ransomware config: {e}")
         return {}
+    except Exception as e:
+        print(f"Error reading ransomware config: {e}")
+        return {}
 
 # ---------------------------------------------------------------------------
 # Fetch Ransomware attacks from https://www.ransomware.live 
