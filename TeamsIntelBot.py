@@ -178,6 +178,8 @@ def GetRansomwareUpdates():
     webhook = push_settings.get("webhook_url", webhook_ransomware)
     secret = push_settings.get("secret", secret_ransomware)
     
+    Data = None
+    
     if use_pro and api_key:
         # Use API PRO
         url = "https://api-pro.ransomware.live/victims/"
@@ -205,149 +207,155 @@ def GetRansomwareUpdates():
             response.raise_for_status()
             Data = response
             print(f"API PRO call successful, status code: {response.status_code}")
-            print(f"API PRO response length: {len(response.content)} bytes")
+            print(f"API PRO response content length: {len(response.content)} bytes")
         except requests.RequestException as e:
             print(f"Error fetching data from API PRO: {e}")
             # Print response content for debugging
             try:
-                if hasattr(response, 'content'):
-                    print(f"API PRO response content: {response.content[:500]}...")
+                if hasattr(e.response, 'content'):
+                    print(f"API PRO response content: {e.response.content[:500]}...")
             except:
                 pass
             # Fallback to free API if PRO fails
             use_pro = False
     
-    if not use_pro:
+    if not use_pro or Data is None:
         # Use free API as fallback
-        Data = requests.get("https://data.ransomware.live/posts.json")
+        try:
+            Data = requests.get("https://data.ransomware.live/posts.json", timeout=10)
+            print(f"Free API call successful, status code: {Data.status_code}")
+        except requests.RequestException as e:
+            print(f"Error fetching data from free API: {e}")
+            return  # Exit function if both APIs fail
     
-    for Entries in Data.json():
-        
-        # Apply filters for free API
-        if not use_pro:
-            # Filter by country
-            country_filter = filters.get("countries", [])
-            if country_filter:
-                # Check if post_title contains any country domain or name
-                post_title = Entries["post_title"].lower()
-                country_match = False
-                for country in country_filter:
-                    if country.lower() in post_title or f".{country.lower()}" in post_title:
-                        country_match = True
-                        break
-                if not country_match:
+    try:
+        entries = Data.json()
+        for Entries in entries:
+            # Apply filters for free API
+            if not use_pro:
+                # Filter by country
+                country_filter = filters.get("countries", [])
+                if country_filter:
+                    # Check if post_title contains any country domain or name
+                    post_title = Entries["post_title"].lower()
+                    country_match = False
+                    for country in country_filter:
+                        if country.lower() in post_title or f".{country.lower()}" in post_title:
+                            country_match = True
+                            break
+                    if not country_match:
+                        continue
+                
+                # Filter by attack type (simplified for free API)
+                attack_type_filter = filters.get("attack_types", [])
+                if attack_type_filter:
+                    # Free API doesn't provide attack type, so we skip this filter
+                    pass
+                
+                # Filter by group
+                group_filter = filters.get("groups", [])
+                if group_filter and Entries["group_name"] not in group_filter:
                     continue
             
-            # Filter by attack type (simplified for free API)
-            attack_type_filter = filters.get("attack_types", [])
-            if attack_type_filter:
-                # Free API doesn't provide attack type, so we skip this filter
-                pass
+            DateActivity = Entries["discovered"]
             
-            # Filter by group
-            group_filter = filters.get("groups", [])
-            if group_filter and Entries["group_name"] not in group_filter:
-                continue
-        
-        DateActivity = Entries["discovered"]
+            # Correction for issue #1 : https://github.com/adminlove520/CTI_bot/issues/1
+            try:
+                TmpObject = FileConfig.get('Ransomware', Entries["group_name"])
+            except:
+                FileConfig.set('Ransomware', Entries["group_name"], " = ?")
+                TmpObject = FileConfig.get('Ransomware', Entries["group_name"])
             
-        # Correction for issue #1 : https://github.com/adminlove520/CTI_bot/issues/1
-        try:
-            TmpObject = FileConfig.get('Ransomware', Entries["group_name"])
-        except:
-            FileConfig.set('Ransomware', Entries["group_name"], " = ?")
-            TmpObject = FileConfig.get('Ransomware', Entries["group_name"])
-
-        if TmpObject.endswith("?"):
-            FileConfig.set('Ransomware', Entries["group_name"], DateActivity)
-        else:
-            if(TmpObject >= DateActivity):
-                continue
-        #else:
-        #    FileConfig.set('Ransomware', Entries["group_name"], Entries["discovered"])
-
-        if Entries['post_url']:
-            url_md5 = hashlib.md5(Entries['post_url'].encode('utf-8')).hexdigest()
-            url = "<br><br><b>Screenshot :</b> <a href='https://images.ransomware.live/screenshots/posts/" +  url_md5 + ".png'> 📸 </a>"
-        else: 
-            url = ""
-        
-        if Entries['website']:
+            if TmpObject.endswith("?"):
+                FileConfig.set('Ransomware', Entries["group_name"], DateActivity)
+            else:
+                if(TmpObject >= DateActivity):
+                    continue
+            #else:
+            #    FileConfig.set('Ransomware', Entries["group_name"], Entries["discovered"])
+            
+            if Entries['post_url']:
+                url_md5 = hashlib.md5(Entries['post_url'].encode('utf-8')).hexdigest()
+                url = "<br><br><b>Screenshot :</b> <a href='https://images.ransomware.live/screenshots/posts/" +  url_md5 + ".png'> 📸 </a>"
+            else: 
+                url = ""
+            
+            if Entries['website']:
                 website = "<a href=\"" + Entries['website'] + "\">" + Entries['website'] + "</a>"
-        else: 
+            else: 
                 website =  "<a href=\"https://www.google.com/search?q=" +  Entries["post_title"].replace(".*", "") + "\">" + Entries["post_title"] + "</a>"
-        
-        # Add classification tags and emojis
-        classification_tags = []
-        
-        # Country tag
-        post_title = Entries["post_title"]
-        if ".cn" in post_title or ".中国" in post_title:
-            classification_tags.append("🇨🇳 中国")
-        elif ".fr" in post_title:
-            classification_tags.append("🇫🇷 法国")
-        elif ".us" in post_title or ".美国" in post_title:
-            classification_tags.append("🇺🇸 美国")
-        elif ".ru" in post_title or ".俄罗斯" in post_title:
-            classification_tags.append("🇷🇺 俄罗斯")
-        
-        # Attack type tag (simplified)
-        description = Entries.get("description", "").lower()
-        if "cyberattack" in description or "attack" in description:
-            classification_tags.append("⚔️ cyberattack")
-        elif "nego" in description or "negotiation" in description:
-            classification_tags.append("💬 nego")
-        elif "data" in description and "leak" in description:
-            classification_tags.append("📊 data leak")
-        
-        OutputMessage = "<b>Group : </b>"
-        OutputMessage += "<a href=\"https://www.ransomware.live/#/profiles?id="
-        OutputMessage += Entries["group_name"]
-        OutputMessage += "\">"
-        OutputMessage += Entries["group_name"]
-        OutputMessage += "</a>"
-        
-        # Add classification tags if any
-        if classification_tags:
-            OutputMessage += "<br><br>🏷️ "
-            OutputMessage += " | ".join(classification_tags)
-        
-        OutputMessage += "<br><br>🗓 "
-        OutputMessage += Entries["discovered"]
-        
-        if Entries.get("description"):
-            OutputMessage += "<br><br>🗒️ "
-            OutputMessage += Entries["description"]
-        
-        OutputMessage += "<br><br>🌍 " 
-        OutputMessage += website 
-        OutputMessage += url
-        
-        
-        Title = "🏴‍☠️ 🔒 "      
+            
+            # Add classification tags and emojis
+            classification_tags = []
+            
+            # Country tag
+            post_title = Entries["post_title"]
+            if ".cn" in post_title or ".中国" in post_title:
+                classification_tags.append("🇨🇳 中国")
+            elif ".fr" in post_title:
+                classification_tags.append("🇫🇷 法国")
+            elif ".us" in post_title or ".美国" in post_title:
+                classification_tags.append("🇺🇸 美国")
+            elif ".ru" in post_title or ".俄罗斯" in post_title:
+                classification_tags.append("🇷🇺 俄罗斯")
+            
+            # Attack type tag (simplified)
+            description = Entries.get("description", "").lower()
+            if "cyberattack" in description or "attack" in description:
+                classification_tags.append("⚔️ cyberattack")
+            elif "nego" in description or "negotiation" in description:
+                classification_tags.append("💬 nego")
+            elif "data" in description and "leak" in description:
+                classification_tags.append("📊 data leak")
+            
+            OutputMessage = "<b>Group : </b>"
+            OutputMessage += "<a href=\"https://www.ransomware.live/#/profiles?id="
+            OutputMessage += Entries["group_name"]
+            OutputMessage += "\">"
+            OutputMessage += Entries["group_name"]
+            OutputMessage += "</a>"
+            
+            # Add classification tags if any
+            if classification_tags:
+                OutputMessage += "<br><br>🏷️ "
+                OutputMessage += " | ".join(classification_tags)
+            
+            OutputMessage += "<br><br>🗓 "
+            OutputMessage += Entries["discovered"]
+            
+            if Entries.get("description"):
+                OutputMessage += "<br><br>🗒️ "
+                OutputMessage += Entries["description"]
+            
+            OutputMessage += "<br><br>🌍 " 
+            OutputMessage += website 
+            OutputMessage += url
+            
+            
+            Title = "🏴‍☠️ 🔒 "      
 
-        # Add country emoji to title
-        if ".cn" in post_title or ".中国" in post_title:
-            Title += " 🇨🇳 "
-        elif ".fr" in post_title:
-            Title += " 🇫🇷 "
-        elif ".us" in post_title or ".美国" in post_title:
-            Title += " 🇺🇸 "
-        elif ".ru" in post_title or ".俄罗斯" in post_title:
-            Title += " 🇷🇺 "
+            # Add country emoji to title
+            if ".cn" in post_title or ".中国" in post_title:
+                Title += " 🇨🇳 "
+            elif ".fr" in post_title:
+                Title += " 🇫🇷 "
+            elif ".us" in post_title or ".美国" in post_title:
+                Title += " 🇺🇸 "
+            elif ".ru" in post_title or ".俄罗斯" in post_title:
+                Title += " 🇷🇺 "
 
-        Title += Entries["post_title"].replace(".*", "") 
-        Title += " by "
-        Title += Entries["group_name"]
+            Title += Entries["post_title"].replace(".*", "") 
+            Title += " by "
+            Title += Entries["group_name"]
 
-        if options.Debug:
-            print(Entries["group_name"] + " = " + Title + " ("  + Entries["discovered"]+")")
-        else:
-            Send_DingTalk(webhook, secret, OutputMessage, Title)
-            time.sleep(3)
+            if options.Debug:
+                print(Entries["group_name"] + " = " + Title + " ("  + Entries["discovered"]+")")
+            else:
+                Send_DingTalk(webhook, secret, OutputMessage, Title)
+                time.sleep(3)
 
-        FileConfig.set('Ransomware', Entries["group_name"], Entries["discovered"])
-
+            FileConfig.set('Ransomware', Entries["group_name"], Entries["discovered"])
+    
     with open(ConfigurationFilePath, 'w') as FileHandle:
         FileConfig.write(FileHandle)
 
