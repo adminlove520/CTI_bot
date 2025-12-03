@@ -1,0 +1,54 @@
+# Ransomware Config Example
+# Copy this file to config_ransomware.yaml and update with your settings
+#
+# Security Note: Sensitive information (API keys, webhook URLs, secrets) should
+# be stored in environment variables, not in this file. The code will always
+# prioritize environment variables over the values in this file.
+
+ransomware:
+  # API PRO settings
+  # ⚠️ 安全建议：敏感信息应使用环境变量配置，而非直接写入配置文件
+  
+  # API密钥 - 优先使用环境变量 RANSOMWARE_LIVE_API_KEY
+  # 配置文件中的值仅作为后备，留空则完全依赖环境变量
+  api_key: ""  # 建议留空，使用环境变量配置
+  
+  # 功能开关
+  use_pro: false  # Set to true to use API PRO
+  enabled: true
+  
+  # Filter settings (matching API PRO parameters)
+  filters:
+    # Filter by ransomware group name
+    # Example: group: ["lockbit", "conti"]
+    group: []
+    
+    # Filter by victim sector
+    # Example: sector: ["healthcare", "technology"]
+    sector: []
+    
+    # Filter by 2-letter country code
+    # Example: country: ["CN", "US", "FR"]
+    country: []
+    
+    # Filter by 4-digit year
+    # Example: year: ["2024", "2025"]
+    year: []
+    
+    # Filter by 2-digit month
+    # Example: month: ["01", "06"]
+    month: []
+    
+    # Use 'discovered' (default) or 'attacked' date for filtering
+    date: "discovered"
+  
+  # Push settings - 优先使用环境变量配置
+  # ⚠️ 安全建议：这些敏感信息应通过环境变量配置
+  # 环境变量优先级高于配置文件，配置文件中的值仅作为后备
+  # 推荐完全移除push_settings节，仅使用环境变量
+  push_settings:
+    # Webhook URL - 优先使用环境变量 DINGTALK_WEBHOOK_RANSOMWARE
+    webhook_url: ""  # 建议留空或完全移除此节
+    
+    # 签名密钥 - 优先使用环境变量 DINGTALK_SECRET_RANSOMWARE
+    secret: ""  # 建议留空或完全移除此节

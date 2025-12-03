@@ -1,0 +1,114 @@
+name: Add Feed from Issue
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  add_feed:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Parse issue and add feed
+        id: add_feed
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+        run: |
+          #!/bin/bash
+          
+          # Extract RSS URL and name from issue body
+          # Expected format:
+          # URL: https://example.com/feed/
+          # Name: Example Feed
+          
+          ISSUE_BODY="$ISSUE_BODY"
+          
+          # Try to extract URL and name using different patterns
+          RSS_URL=$(echo "$ISSUE_BODY" | grep -oP '(?i)(URL|url):\s*\K[^\s]+')
+          RSS_NAME=$(echo "$ISSUE_BODY" | grep -oP '(?i)(Name|name|Title|title):\s*\K[^\s]+')
+          
+          # If extraction fails, try to get from title and body
+          if [ -z "$RSS_URL" ]; then
+            # Try to find URL in issue body
+            RSS_URL=$(echo "$ISSUE_BODY" | grep -oP 'https?://[^\s]+')
+          fi
+          
+          if [ -z "$RSS_NAME" ]; then
+            # Use issue title as name
+            RSS_NAME="$ISSUE_TITLE"
+          fi
+          
+          # Validate RSS URL
+          if ! [[ $RSS_URL =~ ^https?:// ]]; then
+            echo "Invalid RSS URL: $RSS_URL"
+            exit 1
+          fi
+          
+          echo "Found RSS URL: $RSS_URL"
+          echo "Found RSS Name: $RSS_NAME"
+          
+          # Add to Feed.csv
+          echo "$RSS_URL,$RSS_NAME" >> Feed.csv
+          
+          # Remove duplicates (keep the first occurrence)
+          awk -F, '!seen[$1]++' Feed.csv > Feed.csv.tmp && mv Feed.csv.tmp Feed.csv
+          
+          echo "Feed added successfully"
+          
+          # Set outputs for next steps
+          echo "rss_url=$RSS_URL" >> $GITHUB_OUTPUT
+          echo "rss_name=$RSS_NAME" >> $GITHUB_OUTPUT
+
+      - name: Commit and push changes
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "GitHub Actions Bot"
+          
+          git add Feed.csv
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Add new feed: ${{ steps.add_feed.outputs.rss_name }}"
+            git push
+          fi
+
+      - name: Close issue and comment
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const issueNumber = context.issue.number;
+            const rssUrl = '${{ steps.add_feed.outputs.rss_url }}';
+            const rssName = '${{ steps.add_feed.outputs.rss_name }}';
+            
+            // Comment on the issue
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              body: `✅ Successfully added feed to Feed.csv!\n\n**URL:** ${rssUrl}\n**Name:** ${rssName}\n\nThe feed has been added to the list and will be checked for validity in the next scheduled run.`
+            });
+            
+            // Close the issue
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              state: 'closed'
+            });

@@ -1,0 +1,8 @@
+ransomware:
+  api_key: ''
+  enabled: true
+  filters:
+    attack_types: []
+    countries: []
+    groups: []
+  use_pro: true

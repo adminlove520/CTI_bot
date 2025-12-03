@@ -1,40 +1,59 @@
-name: Fetch-CTI
+name: Fetch CTI Data
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: "30 * * * *"
   workflow_dispatch:
+    inputs:
+      enabled:
+        description: 'Enable ransomware updates'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+      use_pro:
+        description: 'Use API PRO'
+        required: true
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 jobs:
-  CTI:
+  fetch-cti:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    environment: CI
     steps:
-      - name: checkout the repo
+      - name: Checkout code
         uses: actions/checkout@v3
-      - name: Use Python 3.10 
+
+      - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10' 
-      - name: install dependencies
-        run: |
-          pip3 install -r requirements.txt
-      - name: run scraper
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run CTI bot
+        run: python TeamsIntelBot.py -d -r
         env:
-          DINGTALK_WEBHOOK_FEED: ${{ secrets.DINGTALK_WEBHOOK_FEED }} 
+          DINGTALK_WEBHOOK_FEED: ${{ secrets.DINGTALK_WEBHOOK_FEED }}
           DINGTALK_SECRET_FEED: ${{ secrets.DINGTALK_SECRET_FEED }}
-          DINGTALK_WEBHOOK_RANSOMWARE: ${{ secrets.DINGTALK_WEBHOOK_RANSOMWARE }} 
+          DINGTALK_WEBHOOK_RANSOMWARE: ${{ secrets.DINGTALK_WEBHOOK_RANSOMWARE }}
           DINGTALK_SECRET_RANSOMWARE: ${{ secrets.DINGTALK_SECRET_RANSOMWARE }}
-          DINGTALK_WEBHOOK_IOC: ${{ secrets.DINGTALK_WEBHOOK_IOC }} 
+          DINGTALK_WEBHOOK_IOC: ${{ secrets.DINGTALK_WEBHOOK_IOC }}
           DINGTALK_SECRET_IOC: ${{ secrets.DINGTALK_SECRET_IOC }}
-        run:
-          python3 TeamsIntelBot.py -d -r 
-      - name: save changes
+          RANSOMWARE_ENABLED: ${{ inputs.enabled || 'true' }}
+          RANSOMWARE_USE_PRO: ${{ inputs.use_pro || 'true' }}
+
+      - name: Commit changes
         run: |
-          git config --global user.email "bot-parser@users.noreply.github.com"
-          git config --global user.name "Bot-Parser"
-          DATE=$(date -Iseconds)
+          git config --global user.email "bot@example.com"
+          git config --global user.name "CTI Bot"
           git add .
-          git commit --all --message "Updated by Bot-Parser on $DATE" || echo "no changes to commit"
+          git commit -m "Update CTI data"
           git push
+        continue-on-error: true

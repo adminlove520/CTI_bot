@@ -25,6 +25,7 @@ from bs4 import BeautifulSoup # parse redflag
 from datetime import datetime, timedelta
 import re
 from dotenv import load_dotenv
+import yaml # For loading ransomware config
 
 # 加载.env文件中的环境变量
 load_dotenv()
@@ -74,14 +75,180 @@ def Send_DingTalk(webhook_url:str, secret:str, content:str, title:str) -> int:
     return response.status_code # Should be 200
 
 # ---------------------------------------------------------------------------
+# Load ransomware config from YAML file
+# ---------------------------------------------------------------------------
+def load_ransomware_config(config_file="config_ransomware.yaml"):
+    """
+    Load ransomware configuration from YAML file
+    :param config_file: Path to config file
+    :return: Config dictionary
+    """
+    if not exists(config_file):
+        # Create default config if file doesn't exist
+        default_config = {
+            "ransomware": {
+                "api_key": "",
+                "enabled": True,
+                "use_pro": False,
+                "filters": {
+                    "group": [],
+                    "sector": [],
+                    "country": [],
+                    "year": [],
+                    "month": [],
+                    "date": "discovered"
+                },
+                "push_settings": {
+                    "webhook_url": os.getenv("DINGTALK_WEBHOOK_RANSOMWARE"),
+                    "secret": os.getenv("DINGTALK_SECRET_RANSOMWARE")
+                }
+            }
+        }
+        with open(config_file, 'w') as f:
+            yaml.dump(default_config, f, default_flow_style=False)
+        return default_config
+    
+    try:
+        with open(config_file, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        # Ensure backward compatibility for old filter names
+        ransomware_config = config.get("ransomware", {})
+        filters = ransomware_config.get("filters", {})
+        
+        # Convert old filter names to new ones if present
+        if "countries" in filters and "country" not in filters:
+            filters["country"] = filters.pop("countries")
+        if "attack_types" in filters and "sector" not in filters:
+            filters["sector"] = filters.pop("attack_types")
+        if "groups" in filters and "group" not in filters:
+            filters["group"] = filters.pop("groups")
+        
+        # Ensure default values
+        if "date" not in filters:
+            filters["date"] = "discovered"
+        
+        # Always prioritize environment variables over config file values
+        # Get API key from environment variable if available
+        api_key_env = os.getenv('RANSOMWARE_LIVE_API_KEY')
+        if api_key_env:
+            ransomware_config["api_key"] = api_key_env
+        
+        # Get enabled flag from environment variable if available
+        enabled_env = os.getenv('RANSOMWARE_ENABLED')
+        if enabled_env:
+            ransomware_config["enabled"] = enabled_env.lower() == 'true'
+        
+        # Get use_pro flag from environment variable if available
+        use_pro_env = os.getenv('RANSOMWARE_USE_PRO')
+        if use_pro_env:
+            ransomware_config["use_pro"] = use_pro_env.lower() == 'true'
+        
+        # Get push settings from environment variables if available
+        push_settings = ransomware_config.get("push_settings", {})
+        webhook_env = os.getenv('DINGTALK_WEBHOOK_RANSOMWARE')
+        secret_env = os.getenv('DINGTALK_SECRET_RANSOMWARE')
+        
+        if webhook_env:
+            push_settings["webhook_url"] = webhook_env
+        if secret_env:
+            push_settings["secret"] = secret_env
+        
+        ransomware_config["push_settings"] = push_settings
+        config["ransomware"] = ransomware_config
+        
+        return config
+    except yaml.YAMLError as e:
+        print(f"Error parsing ransomware config: {e}")
+        return {}
+
+# ---------------------------------------------------------------------------
 # Fetch Ransomware attacks from https://www.ransomware.live 
 # ---------------------------------------------------------------------------
 def GetRansomwareUpdates():
     
-    Data = requests.get("https://data.ransomware.live/posts.json")
+    # Load ransomware config
+    ransomware_config = load_ransomware_config().get("ransomware", {})
+    use_pro = ransomware_config.get("use_pro", False)
+    api_key = ransomware_config.get("api_key", "")
+    filters = ransomware_config.get("filters", {})
+    
+    # Get push settings
+    push_settings = ransomware_config.get("push_settings", {})
+    webhook = push_settings.get("webhook_url", webhook_ransomware)
+    secret = push_settings.get("secret", secret_ransomware)
+    
+    if use_pro and api_key:
+        # Use API PRO
+        url = "https://api-pro.ransomware.live/victims/"
+        headers = {
+            "X-API-KEY": api_key,
+            "Content-Type": "application/json"
+        }
+        params = {}
         
+        # Add filters if any - only add non-empty values
+        if filters.get("group") and filters["group"]:
+            params["group"] = ",".join(filters["group"])
+        if filters.get("sector") and filters["sector"]:
+            params["sector"] = ",".join(filters["sector"])
+        if filters.get("country") and filters["country"]:
+            params["country"] = ",".join(filters["country"])
+        if filters.get("year") and filters["year"]:
+            params["year"] = ",".join(filters["year"])
+        if filters.get("month") and filters["month"]:
+            params["month"] = ",".join(filters["month"])
+        # Note: date parameter is removed as it was causing 400 errors
+        
+        try:
+            response = requests.get(url, headers=headers, params=params, timeout=10)
+            response.raise_for_status()
+            Data = response
+            print(f"API PRO call successful, status code: {response.status_code}")
+            print(f"API PRO response length: {len(response.content)} bytes")
+        except requests.RequestException as e:
+            print(f"Error fetching data from API PRO: {e}")
+            # Print response content for debugging
+            try:
+                if hasattr(response, 'content'):
+                    print(f"API PRO response content: {response.content[:500]}...")
+            except:
+                pass
+            # Fallback to free API if PRO fails
+            use_pro = False
+    
+    if not use_pro:
+        # Use free API as fallback
+        Data = requests.get("https://data.ransomware.live/posts.json")
+    
     for Entries in Data.json():
-
+        
+        # Apply filters for free API
+        if not use_pro:
+            # Filter by country
+            country_filter = filters.get("countries", [])
+            if country_filter:
+                # Check if post_title contains any country domain or name
+                post_title = Entries["post_title"].lower()
+                country_match = False
+                for country in country_filter:
+                    if country.lower() in post_title or f".{country.lower()}" in post_title:
+                        country_match = True
+                        break
+                if not country_match:
+                    continue
+            
+            # Filter by attack type (simplified for free API)
+            attack_type_filter = filters.get("attack_types", [])
+            if attack_type_filter:
+                # Free API doesn't provide attack type, so we skip this filter
+                pass
+            
+            # Filter by group
+            group_filter = filters.get("groups", [])
+            if group_filter and Entries["group_name"] not in group_filter:
+                continue
+        
         DateActivity = Entries["discovered"]
             
         # Correction for issue #1 : https://github.com/adminlove520/CTI_bot/issues/1
@@ -108,7 +275,30 @@ def GetRansomwareUpdates():
         if Entries['website']:
                 website = "<a href=\"" + Entries['website'] + "\">" + Entries['website'] + "</a>"
         else: 
-                website =  "<a href=\"https://www.google.com/search?q=" +  Entries["post_title"].replace("*.", "") + "\">" + Entries["post_title"] + "</a>"
+                website =  "<a href=\"https://www.google.com/search?q=" +  Entries["post_title"].replace(".*", "") + "\">" + Entries["post_title"] + "</a>"
+        
+        # Add classification tags and emojis
+        classification_tags = []
+        
+        # Country tag
+        post_title = Entries["post_title"]
+        if ".cn" in post_title or ".中国" in post_title:
+            classification_tags.append("🇨🇳 中国")
+        elif ".fr" in post_title:
+            classification_tags.append("🇫🇷 法国")
+        elif ".us" in post_title or ".美国" in post_title:
+            classification_tags.append("🇺🇸 美国")
+        elif ".ru" in post_title or ".俄罗斯" in post_title:
+            classification_tags.append("🇷🇺 俄罗斯")
+        
+        # Attack type tag (simplified)
+        description = Entries.get("description", "").lower()
+        if "cyberattack" in description or "attack" in description:
+            classification_tags.append("⚔️ cyberattack")
+        elif "nego" in description or "negotiation" in description:
+            classification_tags.append("💬 nego")
+        elif "data" in description and "leak" in description:
+            classification_tags.append("📊 data leak")
         
         OutputMessage = "<b>Group : </b>"
         OutputMessage += "<a href=\"https://www.ransomware.live/#/profiles?id="
@@ -116,29 +306,44 @@ def GetRansomwareUpdates():
         OutputMessage += "\">"
         OutputMessage += Entries["group_name"]
         OutputMessage += "</a>"
-        OutputMessage += "<br></br><br>🗓 "
+        
+        # Add classification tags if any
+        if classification_tags:
+            OutputMessage += "<br><br>🏷️ "
+            OutputMessage += " | ".join(classification_tags)
+        
+        OutputMessage += "<br><br>🗓 "
         OutputMessage += Entries["discovered"]
-        if Entries["description"]:
+        
+        if Entries.get("description"):
             OutputMessage += "<br><br>🗒️ "
             OutputMessage += Entries["description"]
+        
         OutputMessage += "<br><br>🌍 " 
         OutputMessage += website 
         OutputMessage += url
         
         
-        Title = "🏴‍☠️ 🔒 "     
+        Title = "🏴‍☠️ 🔒 "      
 
-        if Entries["post_title"].find(".fr") != -1:
+        # Add country emoji to title
+        if ".cn" in post_title or ".中国" in post_title:
+            Title += " 🇨🇳 "
+        elif ".fr" in post_title:
             Title += " 🇫🇷 "
+        elif ".us" in post_title or ".美国" in post_title:
+            Title += " 🇺🇸 "
+        elif ".ru" in post_title or ".俄罗斯" in post_title:
+            Title += " 🇷🇺 "
 
-        Title += Entries["post_title"].replace("*.", "") 
+        Title += Entries["post_title"].replace(".*", "") 
         Title += " by "
         Title += Entries["group_name"]
 
         if options.Debug:
             print(Entries["group_name"] + " = " + Title + " ("  + Entries["discovered"]+")")
         else:
-            Send_DingTalk(webhook_ransomware, secret_ransomware, OutputMessage, Title)
+            Send_DingTalk(webhook, secret, OutputMessage, Title)
             time.sleep(3)
 
         FileConfig.set('Ransomware', Entries["group_name"], Entries["discovered"])
