@@ -52,7 +52,10 @@ jobs:
               COMMIT_MSG="Update RSS feeds: no changes"
             fi
           fi
-          echo "commit_message=$COMMIT_MSG" >> $GITHUB_OUTPUT
+          # Use multiline output format to handle commit messages with newlines
+          echo "commit_message<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMIT_MSG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Commit and push changes
         run: |

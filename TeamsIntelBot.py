@@ -503,8 +503,8 @@ def get_red_flag_domains():
     """
     Fetch red flag domains from red.flag.domains.
 
-    Checks for new domains published today, parses the content,
-    and sends notifications to DingTalk.
+    Checks for new domains published today or yesterday (handling timezone differences),
+    downloads the text file, and sends notifications to DingTalk.
     """
     now = datetime.now()
     format_str = "%Y-%m-%d"
@@ -519,35 +519,57 @@ def get_red_flag_domains():
         tmp_object = str(yesterday)
 
     tmp_object = datetime.strptime(tmp_object, '%Y-%m-%d')
-    today = datetime.strptime(today, '%Y-%m-%d')
+    today_dt = datetime.strptime(today, '%Y-%m-%d')
+    yesterday_dt = datetime.strptime(yesterday, '%Y-%m-%d')
 
-    today = today.date()
+    today_dt = today_dt.date()
+    yesterday_dt = yesterday_dt.date()
     tmp_object = tmp_object.date()
 
-    if tmp_object < today:
-        url="https://red.flag.domains/posts/"+ str(today) + "/"
+    # Check both today and yesterday due to timezone differences
+    dates_to_check = [today, yesterday] if tmp_object < today_dt else [today]
+    
+    for check_date in dates_to_check:
+        # 使用正确的下载链接格式
+        url = f"https://dl.red.flag.domains/daily/{check_date}.txt"
+        
         try:
-            response = urllib.request.urlopen(url)
-            soup = BeautifulSoup(response,
-                                'html.parser',
-                                from_encoding=response.info().get_param('charset'))
-            # response_status = response.status
-            #if soup.findAll("meta", property="og:description"):
-            #    output_message = soup.find("meta", property="og:description")["content"][4:].replace('.wf ','').replace('.yt ','').replace('.re ','').replace('[','').replace(']','')
-            div = soup.find("div", {"class": "content", "itemprop": "articleBody"})
-            for p in div.find_all("p"):
-                #output_message = re.sub("[\[\]]", "", (p.get_text()))
-                output_message = re.sub(r"[\[\]]", "", (p.get_text()))
-            title = "🚩 Red Flag Domains créés ce jour (" +  str(today) + ")"
-            FileConfig.set('Misc', "redflagdomains", str(today))
-            if options.Debug:
-                print(title)
-                print(output_message)
+            response = urllib.request.urlopen(url, timeout=10)
+            # Check if response is successful
+            if response.getcode() == 200:
+                # 读取文本内容
+                content = response.read().decode('utf-8')
+                
+                # 格式化输出信息
+                output_message = ""
+                domains = content.strip().split('\n')
+                for domain in domains:
+                    if domain.strip():
+                        output_message += f"🔴 {domain.strip()}<br>"
+                
+                title = "🚩 Red Flag Domains créés ce jour (" +  str(check_date) + ")"
+                FileConfig.set('Misc', "redflagdomains", str(check_date))
+                
+                if options.Debug:
+                    print(title)
+                    print(output_message)
+                else:
+                    send_dingtalk(webhook_feed, secret_feed, output_message, title)
+                    time.sleep(3)
+                # 如果今天的文件存在，就不需要检查昨天的了
+                if check_date == today:
+                    break
             else:
-                send_dingtalk(webhook_feed, secret_feed, output_message.replace('\n','<br>'), title)
-                time.sleep(3)
-        except (urllib.error.URLError, urllib.error.HTTPError, AttributeError, ValueError) as e:
-            print(f"Error fetching Red Flag Domains: {e}")
+                print(f"Error fetching Red Flag Domains from {url}: HTTP {response.getcode()}")
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                print(f"URL {url} returned 404, no domains published for this date")
+            else:
+                print(f"HTTP Error fetching {url}: {e}")
+        except urllib.error.URLError as e:
+            print(f"Network Error fetching {url}: {e}")
+        except Exception as e:
+            print(f"Error processing Red Flag Domains from {url}: {e}")
     with open(ConfigurationFilePath, 'w', encoding='utf-8') as file_handle:
         FileConfig.write(file_handle)
 
@@ -674,17 +696,17 @@ if __name__ == '__main__':
     # Make some simple checks before starting
     if sys.version_info < (3, 10):
         sys.exit("Please use Python 3.10+")
-    if (str(webhook_feed) == "None" and not options.Debug):
+    if (webhook_feed is None and not options.Debug):
         sys.exit("Please use a DINGTALK_WEBHOOK_FEED variable")
-    if (str(secret_feed) == "None" and not options.Debug):
+    if (secret_feed is None and not options.Debug):
         sys.exit("Please use a DINGTALK_SECRET_FEED variable")
-    if (str(webhook_ransomware) == "None" and not options.Debug):
+    if (webhook_ransomware is None and not options.Debug):
         sys.exit("Please use a DINGTALK_WEBHOOK_RANSOMWARE variable")
-    if (str(secret_ransomware) == "None" and not options.Debug):
+    if (secret_ransomware is None and not options.Debug):
         sys.exit("Please use a DINGTALK_SECRET_RANSOMWARE variable")
-    if (str(webhook_ioc) == "None" and not options.Debug):
+    if (webhook_ioc is None and not options.Debug):
         sys.exit("Please use a DINGTALK_WEBHOOK_IOC variable")
-    if (str(secret_ioc) == "None" and not options.Debug):
+    if (secret_ioc is None and not options.Debug):
         sys.exit("Please use a DINGTALK_SECRET_IOC variable")
 
     if not exists(ConfigurationFilePath):
