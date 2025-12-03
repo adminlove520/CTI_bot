@@ -6,9 +6,10 @@ Check RSS feeds for validity and remove invalid ones
 
 import argparse
 import csv
+import time
+import socket
 import feedparser
 import yaml
-import time
 
 class color:
     PURPLE = '\033[95m'
@@ -49,7 +50,6 @@ def check_rss_feed(url):
     try:
         # feedparser.parse() in version 6.0.10 doesn't support timeout parameter
         # Use a different approach to handle timeouts
-        import socket
         
         # Set default socket timeout
         original_timeout = socket.getdefaulttimeout()

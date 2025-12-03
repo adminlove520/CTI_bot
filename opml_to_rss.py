@@ -7,10 +7,9 @@ OPML to RSS converter
 
 import argparse
 import csv
-import os
+import xml.etree.ElementTree as ET
 import requests
 import yaml
-import xml.etree.ElementTree as ET
 
 
 def parse_opml(opml_content):

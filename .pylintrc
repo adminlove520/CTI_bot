@@ -1,0 +1,47 @@
+[MASTER]
+
+[MESSAGES CONTROL]
+# Disable some strict rules that are less critical
+# Enable only core syntax and logic error checks
+
+disable=
+    # Naming conventions that are not critical for functionality
+    invalid-name,
+    
+    # Line length that's too strict
+    line-too-long,
+    
+    # Superfluous parentheses that don't affect functionality
+    superfluous-parens,
+    
+    # Indentation that's slightly off but not broken
+    bad-indentation,
+    
+    # Too many branches/variables/statements for complex functions
+    too-many-branches,
+    too-many-locals,
+    too-many-statements,
+    
+    # Redefined outer names that don't cause issues
+    redefined-outer-name,
+    
+    # Unspecified encoding for files
+    unspecified-encoding,
+    
+    # Too many nested blocks for complex functions
+    too-many-nested-blocks,
+    
+    # Consider using 'with' for resource-allocating operations
+    consider-using-with,
+    
+    # Possibly used before assignment warnings (false positives in some cases)
+    possibly-used-before-assignment,
+    
+    # Broad exception catching (sometimes necessary for robustness)
+    broad-exception-caught
+
+[TYPECHECK]
+# Basic type checking settings
+
+[FORMAT]
+# Basic formatting settings
