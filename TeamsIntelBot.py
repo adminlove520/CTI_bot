@@ -358,9 +358,12 @@ def GetRansomwareUpdates():
                 time.sleep(3)
 
             FileConfig.set('Ransomware', Entries["group_name"], Entries["discovered"])
-    
-    with open(ConfigurationFilePath, 'w') as FileHandle:
-        FileConfig.write(FileHandle)
+        
+        # Write configuration file after all updates
+        with open(ConfigurationFilePath, 'w') as FileHandle:
+            FileConfig.write(FileHandle)
+    except Exception as e:
+        print(f"Error processing ransomware updates: {e}")
 
 
 # ---------------------------------------------------------------------------
