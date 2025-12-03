@@ -2,7 +2,11 @@ ransomware:
   api_key: ''
   enabled: true
   filters:
-    attack_types: []
-    countries: []
-    groups: []
+    sector: []
+    country: []
+    group: []
+    year: []
+    month: []
+    date: discovered
   use_pro: true
+  push_settings:

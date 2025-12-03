@@ -80,13 +80,26 @@ def send_dingtalk(webhook_url:str, secret:str, content:str, title:str) -> int:
         }
     }
 
-    response = requests.post(
-        url=full_url,
-        headers={"Content-Type": "application/json"},
-        json=payload,
-        timeout=10
-    )
-    return response.status_code # Should be 200
+    try:
+        response = requests.post(
+            url=full_url,
+            headers={"Content-Type": "application/json"},
+            json=payload,
+            timeout=10
+        )
+        # 添加日志记录，便于调试
+        print(f"DingTalk push result: Status {response.status_code}, Content: {response.text}")
+        response.raise_for_status()  # 抛出HTTP错误
+        return response.status_code # Should be 200
+    except requests.RequestException as e:
+        print(f"DingTalk push failed: {e}")
+        # 尝试打印响应内容
+        try:
+            if hasattr(e, 'response') and e.response:
+                print(f"Response content: {e.response.text}")
+        except Exception:
+            pass
+        return getattr(e.response, 'status_code', 500) if hasattr(e, 'response') else 500
 
 # ---------------------------------------------------------------------------
 # Load ransomware config from YAML file
@@ -190,6 +203,9 @@ def get_ransomware_updates():
     applies filters, and sends notifications to DingTalk.
     """
 
+    # Get global webhook and secret variables
+    global webhook_ransomware, secret_ransomware
+    
     # Load ransomware config
     ransomware_config = load_ransomware_config().get("ransomware", {})
     use_pro = ransomware_config.get("use_pro", False)

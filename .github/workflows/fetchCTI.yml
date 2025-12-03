@@ -46,6 +46,7 @@ jobs:
           DINGTALK_SECRET_RANSOMWARE: ${{ secrets.DINGTALK_SECRET_RANSOMWARE }}
           DINGTALK_WEBHOOK_IOC: ${{ secrets.DINGTALK_WEBHOOK_IOC }}
           DINGTALK_SECRET_IOC: ${{ secrets.DINGTALK_SECRET_IOC }}
+          RANSOMWARE_LIVE_API_KEY: ${{ secrets.RANSOMWARE_LIVE_API_KEY }}
           RANSOMWARE_ENABLED: ${{ inputs.enabled || 'true' }}
           RANSOMWARE_USE_PRO: ${{ inputs.use_pro || 'true' }}
 
