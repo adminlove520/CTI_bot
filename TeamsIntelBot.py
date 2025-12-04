@@ -943,7 +943,7 @@ if __name__ == '__main__':
     if not exists(ConfigurationFilePath):
         sys.exit("Please add a Config.txt file")
     if not exists("./Feed.csv"):
-        sys.exit("Please add the Feed.cvs file")
+        sys.exit("Please add the Feed.csv file")
 
     # Read the Config.txt file
     # ConfigurationFilePath = "./Config.txt" ##path to configuration file
