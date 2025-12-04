@@ -1,13 +1,13 @@
 ransomware:
-  api_key: ''
+  api_key: '8b05eccc-a8d2-4efa-898b-c3d32a91e279'
   enabled: true
+  use_pro: true
   filters:
     sector: []
     country: []
     group: []
-    year: []
+    year: ["2025"]
     month: []
     date: discovered
-  use_pro: true
   push_settings: {}
 
