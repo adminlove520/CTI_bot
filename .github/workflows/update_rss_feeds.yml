@@ -59,15 +59,49 @@ jobs:
 
       - name: Commit and push changes
         run: |
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "GitHub Actions Bot"
+          set -x  # Enable debug mode to see each command
+          set -e  # Exit immediately if any command fails
           
+          # Debug: Check current directory and git status
+          echo "Current directory: $(pwd)"
+          echo "Directory contents:"
+          ls -la
+          
+          # Check git repository status
+          echo "Git repository status:"
+          git status
+          
+          # Check if git is installed and its version
+          echo "Git version:"
+          git --version
+          
+          # Check git user configuration (without --global to avoid permission issues)
+          echo "Configuring git user..."
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "GitHub Actions Bot"
+          
+          # Debug: Check git config (local)
+          echo "Git config (local):"
+          git config --list
+          
+          # Check git remote configuration
+          echo "Git remote:"
+          git remote -v
+          
+          # Check git branch
+          echo "Git branch:"
+          git branch
+          
+          # Add changes with explicit path
           git add .
           
           # Check if there are any changes to commit
+          echo "Checking for staged changes..."
           git diff --staged --quiet
           if [ $? -ne 0 ]; then
+            echo "Creating commit..."
             git commit -m "${{ steps.commit_msg.outputs.commit_message }}"
+            echo "Pushing changes..."
             git push
           else
             echo "No changes to commit"
